@@ -1,56 +1,63 @@
-const fs = require("fs/promises");
-const path = require("path");
 const Joi = require("joi");
-const dbPath = path.join(__dirname, "./contacts.json");
-const { v4: uuid } = require("uuid");
+const dbMongoos = require("../db/connections");
+const Contact = require("../db/contactsModel");
 
-const listContacts = async () => JSON.parse(await fs.readFile(dbPath, "utf-8"));
+const listContacts = async () => {
+  const contacts = await Contact.find();
+  return contacts;
+};
 
 const getContactById = async (contactId) => {
-  const data = await listContacts();
-  return data.find((item) => contactId === item.id);
+  const data = await Contact.findById(contactId);
+  return data;
 };
 
 const removeContact = async (contactId) => {
   const data = await listContacts();
   const postIndex = data.findIndex((item) => contactId === item.id);
   if (postIndex === -1) return false;
-  data.splice(postIndex, 1);
-  fs.writeFile(dbPath, JSON.stringify(data));
-  return true;
+  //як позбутись цієї обробки помилки?
+  console.log(Contact.deleteOne({ _id: contactId }));
+  return Contact.deleteOne({ _id: contactId });
 };
 
 const addContact = async (body) => {
+  const { name, email, phone, favorite } = body;
   const schema = Joi.object({
     name: Joi.string().alphanum().min(3).max(30).required(),
     email: Joi.string().required(),
     phone: Joi.required(),
   });
-  const data = await listContacts();
+  const data = await new Contact({ name, email, phone, favorite });
+  console.log(data);
+  //як тут обробити помилку
+
   const validationResult = schema.validate(body);
   if (validationResult.error) return false;
-  console.log(validationResult);
-  const newPost = { ...body, id: uuid() };
-  data.push(newPost);
-  fs.writeFile(dbPath, JSON.stringify(data));
-  return newPost;
+  await data.save();
+  return data;
 };
 
 const updateContact = async (contactId, body) => {
   const schema = Joi.object({
-    name: Joi.string().alphanum().min(3).max(30).required(),
+    name: Joi.string().min(3).max(30).required(),
     email: Joi.string().required(),
     phone: Joi.required(),
+    favorite: Joi.boolean(),
   });
   const validationResult = schema.validate(body);
   if (validationResult.error) return validationResult.error.details[0].message;
+  return await Contact.update({ _id: contactId }, body);
+};
+const updateStatusContact = async (contactId, body) => {
   const data = await listContacts();
   const postIndex = data.findIndex((item) => contactId === item.id);
   if (postIndex === -1) return false;
-  const newPost = { ...data[postIndex], ...body, id: data[postIndex].id };
-  data.splice(postIndex, 1, newPost);
-  fs.writeFile(dbPath, JSON.stringify(data));
-  return newPost;
+  const { favorite } = body;
+  const schema = Joi.boolean();
+  const validationResult = schema.validate(favorite);
+  if (validationResult.error) return validationResult.error.details[0].message;
+  return await Contact.updateOne({ _id: contactId }, { favorite: favorite });
 };
 
 module.exports = {
@@ -59,4 +66,5 @@ module.exports = {
   removeContact,
   addContact,
   updateContact,
+  updateStatusContact,
 };

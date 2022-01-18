@@ -10,12 +10,11 @@ const {
   addContact,
   updateContact,
   updateStatusContact,
-} = require("../../model/index");
+} = require("../../model/Contacts/index");
 
 router.get("/", async (req, res, next) => {
   try {
     res.json(await listContacts());
-    return res.status(200);
   } catch (err) {
     next(createError(err));
   }
@@ -48,7 +47,7 @@ router.delete("/:contactId", async (req, res, next) => {
     if (!result) throw new Error("Not found");
     res.status(200).json({ message: "contact deleted" });
   } catch (err) {
-    next(createError(400, err));
+    next(createError(404, err));
   }
 });
 

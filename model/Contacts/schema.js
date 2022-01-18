@@ -17,6 +17,10 @@ const contacts = new Shema({
     type: Boolean,
     default: false,
   },
+  owner: {
+    type: mongoose.ObjectId,
+    ref: "user",
+  },
 });
 
 const Contact = mongoose.model(`contact`, contacts);

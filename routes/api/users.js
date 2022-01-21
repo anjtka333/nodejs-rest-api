@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const createError = require("http-errors");
+const jwt = require("jsonwebtoken");
+const passport = require("passport");
+require("dotenv").config();
+const secret = process.env.SECRET;
 
 const {
   listUsers,
@@ -10,7 +14,23 @@ const {
   removeUser,
   signupUser,
   getUserByEmail,
+  updateTokenById,
 } = require("../../model/Users");
+
+const auth = (req, res, next) => {
+  passport.authenticate("jwt", { session: false }, (err, user) => {
+    if (!user || err || req.headers.authorization !== "Bearer " + user.token) {
+      return res.status(401).json({
+        status: "error",
+        code: 401,
+        message: "Unauthorized",
+        data: "Unauthorized",
+      });
+    }
+    req.user = user;
+    next();
+  })(req, res, next);
+};
 
 router.get("/", async (req, res, next) => {
   try {
@@ -21,15 +41,15 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-router.get("/:userId", async (req, res, next) => {
-  try {
-    const result = await getUserById(req.params.userId);
-    if (!result) throw new Error("Not found");
-    return res.json(result);
-  } catch (err) {
-    next(createError(400, err));
-  }
-});
+// router.get("/:userId", async (req, res, next) => {
+//   try {
+//     const result = await getUserById(req.params.userId);
+//     if (!result) throw new Error("Not found");
+//     return res.json(result);
+//   } catch (err) {
+//     next(createError(400, err));
+//   }
+// });
 
 router.post("/", async (req, res, next) => {
   try {
@@ -65,7 +85,6 @@ router.delete("/:userId", async (req, res, next) => {
 });
 
 router.post("/signup", async (req, res, next) => {
-  console.log(req.body);
   try {
     const user = await getUserByEmail(req.body.email);
     if (user)
@@ -88,8 +107,8 @@ router.post("/signup", async (req, res, next) => {
     next(err);
   }
 });
+
 router.post("/login", async (req, res, next) => {
-  // phj,bnb kjusy
   try {
     const user = await getUserByEmail(req.body.email);
     if (!user || !user.validPassword(req.body.password)) {
@@ -100,12 +119,45 @@ router.post("/login", async (req, res, next) => {
         data: "Bad request",
       });
     }
-
-    res.status(201).json({
+    const payload = {
+      id: user.id,
+      password: user.password,
+      email: user.email,
+    };
+    const token = jwt.sign(payload, secret, { expiresIn: "1h" });
+    await updateTokenById(user.id, token);
+    res.status(200).json({
       status: "success",
-      code: 201,
+      code: 200,
       data: {
-        message: "Registration successful",
+        token,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/logout", auth, async (req, res, next) => {
+  await updateTokenById(req.user.id, null);
+  res.json({
+    status: "success",
+    code: 200,
+    data: {
+      email: req.user.email,
+      subscription: req.user.subscription,
+    },
+  });
+});
+
+router.get("/current", auth, async (req, res, next) => {
+  try {
+    return res.json({
+      status: "success",
+      code: 200,
+      data: {
+        email: req.user.email,
+        subscription: req.user.subscription,
       },
     });
   } catch (err) {

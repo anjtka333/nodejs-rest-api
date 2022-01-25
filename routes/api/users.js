@@ -2,7 +2,13 @@ const express = require("express");
 const router = express.Router();
 const createError = require("http-errors");
 const jwt = require("jsonwebtoken");
+const path = require("path");
+const fs = require("fs").promises;
 const passport = require("passport");
+const multer = require("../../multer");
+const { v4: uuidv4 } = require("uuid");
+var gravatar = require("gravatar");
+var Jimp = require("jimp");
 require("dotenv").config();
 const secret = process.env.SECRET;
 
@@ -41,16 +47,6 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// router.get("/:userId", async (req, res, next) => {
-//   try {
-//     const result = await getUserById(req.params.userId);
-//     if (!result) throw new Error("Not found");
-//     return res.json(result);
-//   } catch (err) {
-//     next(createError(400, err));
-//   }
-// });
-
 router.post("/", async (req, res, next) => {
   try {
     const result = await addUser(req.body);
@@ -61,18 +57,18 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-router.patch("/:userId", async (req, res, next) => {
-  try {
-    const result = await updateUser(req.params.userId, req.body);
-    if (!result) throw new Error("Not found");
-    if (typeof result === "string") {
-      return res.status(400).json({ message: result });
-    }
-    res.status(200).json(result);
-  } catch (err) {
-    next(createError(400, err));
-  }
-});
+// router.patch("/:userId", async (req, res, next) => {
+//   try {
+//     const result = await updateUser(req.params.userId, req.body);
+//     if (!result) throw new Error("Not found");
+//     if (typeof result === "string") {
+//       return res.status(400).json({ message: result });
+//     }
+//     res.status(200).json(result);
+//   } catch (err) {
+//     next(createError(400, err));
+//   }
+// });
 
 router.delete("/:userId", async (req, res, next) => {
   try {
@@ -94,7 +90,7 @@ router.post("/signup", async (req, res, next) => {
         message: "Email is already in use",
         data: "Conflict",
       });
-    await addUser(req.body);
+    await addUser(req.body, gravatar.url(req.body.email));
 
     res.status(201).json({
       status: "success",
@@ -164,5 +160,32 @@ router.get("/current", auth, async (req, res, next) => {
     next(err);
   }
 });
+
+router.patch(
+  "/avatars",
+  auth,
+  multer.single("picture"),
+  async (req, res, next) => {
+    const { description } = req.body;
+    const { path: temporaryName, originalname } = req.file;
+
+    const newPathFile = path.join(
+      process.cwd(),
+      `public/avatars/${uuidv4()}_${originalname}`
+    );
+
+    Jimp.read(temporaryName, async (err, lenna) => {
+      if (err) throw err;
+      lenna
+        .resize(250, 250) // resize
+        .quality(60) // set JPEG quality
+        .greyscale() // set greyscale
+        .write(newPathFile); // save
+      await fs.unlink(temporaryName);
+    });
+
+    res.json({ description, message: "Файл успешно загружен", status: 200 });
+  }
+);
 
 module.exports = router;

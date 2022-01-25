@@ -11,13 +11,13 @@ const getUserById = async (userId) => {
   return data;
 };
 
-const addUser = async (body) => {
+const addUser = async (body, avatarURL) => {
   const { password, email } = body;
   const schema = Joi.object({
     password: Joi.string().alphanum().min(3).max(30).required(),
     email: Joi.string().required(),
   });
-  const data = await new User({ password, email });
+  const data = await new User({ password, email, avatarURL });
   data.setPassword(password);
   const validationResult = schema.validate(body);
   if (validationResult.error) return false;

@@ -33,8 +33,6 @@ const addContact = async (body) => {
     phone: Joi.required(),
   });
   const data = await new Contact({ name, email, phone, favorite });
-  console.log(data);
-
   const validationResult = schema.validate(body);
   if (validationResult.error) return false;
   await data.save();

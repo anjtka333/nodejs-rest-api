@@ -22,6 +22,9 @@ const users = new Shema({
     type: String,
     default: null,
   },
+  avatarURL: {
+    type: String,
+  },
 });
 
 users.methods.setPassword = function (password) {

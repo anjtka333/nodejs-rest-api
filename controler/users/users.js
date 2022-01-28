@@ -13,12 +13,7 @@ require("dotenv").config();
 const transporter = require("../../mail");
 const secret = process.env.SECRET;
 const {
-  listUsers,
-  getUserById,
   addUser,
-  updateUser,
-  removeUser,
-  signupUser,
   getUserByEmail,
   updateTokenById,
   veryfyByToken,
@@ -45,12 +40,14 @@ const signUp = async (req, res, next) => {
       html: `<a href="http://localhost:3000/api/users/verify/${token}">verification link</a>`,
     };
 
-    await transporter.sendMail(emailOptions).then((info) =>
+    await transporter.sendMail(emailOptions).then(() =>
       res.status(201).json({
         status: "success",
         code: 201,
         data: {
+          email: req.body.email,
           message: "Check your email",
+          token,
         },
       })
     );
@@ -201,6 +198,7 @@ const downloadAvatar = async (req, res, next) => {
 
   res.json({ description, message: "Файл успешно загружен", status: 200 });
 };
+
 module.exports = {
   signUp,
   verifyToken,

@@ -6,12 +6,13 @@ const path = require("path");
 const fs = require("fs").promises;
 const passport = require("passport");
 const multer = require("../../multer");
-const { v4: uuidv4 } = require("uuid");
-var gravatar = require("gravatar");
-var Jimp = require("jimp");
+const { v4: uuidv4, v4 } = require("uuid");
+const gravatar = require("gravatar");
+const Jimp = require("jimp");
 require("dotenv").config();
+const transporter = require("../../mail");
 const secret = process.env.SECRET;
-
+const { signUp } = require("../../controler/users/users");
 const {
   listUsers,
   getUserById,
@@ -21,6 +22,8 @@ const {
   signupUser,
   getUserByEmail,
   updateTokenById,
+  veryfyByToken,
+  updateTokenByEmail,
 } = require("../../model/Users");
 
 const auth = (req, res, next) => {
@@ -38,12 +41,59 @@ const auth = (req, res, next) => {
   })(req, res, next);
 };
 
-router.get("/", async (req, res, next) => {
+router.get("/verify/:verificationToken", async (req, res, next) => {
   try {
-    res.json(await listUsers());
-    return res.status(200);
+    const user = await veryfyByToken(req.params.verificationToken);
+    res.status(201).json({
+      status: "success",
+      code: 200,
+      data: {
+        message: "Registration successful",
+      },
+    });
   } catch (err) {
-    next(createError(err));
+    next(err);
+  }
+});
+
+router.post("/verify", async (req, res, next) => {
+  const token = v4();
+  try {
+    if (!req.body.email) {
+      return res.status(400).json({
+        status: "error",
+        code: 400,
+        message: "missing required field email",
+      });
+    }
+    let user = getUserByEmail(req.body.email);
+    if (user.verify) {
+      return res.status(400).json({
+        status: "400 Bad Request",
+        code: 400,
+        message: "Verification has already been passed",
+      });
+    }
+
+    user = await updateTokenByEmail(req.body.email, token);
+    const emailOptions = {
+      from: "spercorep@gmail.com",
+      to: req.body.email,
+      subject: "Nodemailer test",
+      html: `<a href="http://localhost:3000/api/users/verify/${token}">verification link</a>`,
+    };
+
+    await transporter.sendMail(emailOptions).then((info) =>
+      res.status(201).json({
+        status: "success",
+        code: 201,
+        data: {
+          message: "Mail sent",
+        },
+      })
+    );
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -57,19 +107,6 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// router.patch("/:userId", async (req, res, next) => {
-//   try {
-//     const result = await updateUser(req.params.userId, req.body);
-//     if (!result) throw new Error("Not found");
-//     if (typeof result === "string") {
-//       return res.status(400).json({ message: result });
-//     }
-//     res.status(200).json(result);
-//   } catch (err) {
-//     next(createError(400, err));
-//   }
-// });
-
 router.delete("/:userId", async (req, res, next) => {
   try {
     const result = await removeUser(req.params.userId);
@@ -80,29 +117,7 @@ router.delete("/:userId", async (req, res, next) => {
   }
 });
 
-router.post("/signup", async (req, res, next) => {
-  try {
-    const user = await getUserByEmail(req.body.email);
-    if (user)
-      return res.status(409).json({
-        status: "error",
-        code: 409,
-        message: "Email is already in use",
-        data: "Conflict",
-      });
-    await addUser(req.body, gravatar.url(req.body.email));
-
-    res.status(201).json({
-      status: "success",
-      code: 201,
-      data: {
-        message: "Registration successful",
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+router.post("/signup", signUp);
 
 router.post("/login", async (req, res, next) => {
   try {
@@ -112,6 +127,14 @@ router.post("/login", async (req, res, next) => {
         status: "error",
         code: 400,
         message: "Incorrect login or password",
+        data: "Bad request",
+      });
+    }
+    if (!user.verify) {
+      return res.status(400).json({
+        status: "error",
+        code: 400,
+        message: "Verify your email plz",
         data: "Bad request",
       });
     }

@@ -21,33 +21,8 @@ const {
   getCurrentUser,
   downloadAvatar,
 } = require("../../controler/users/users");
-const {
-  listUsers,
-  getUserById,
-  addUser,
-  updateUser,
-  removeUser,
-  signupUser,
-  getUserByEmail,
-  updateTokenById,
-  veryfyByToken,
-  updateTokenByEmail,
-} = require("../../model/Users");
-
-const auth = (req, res, next) => {
-  passport.authenticate("jwt", { session: false }, (err, user) => {
-    if (!user || err || req.headers.authorization !== "Bearer " + user.token) {
-      return res.status(401).json({
-        status: "error",
-        code: 401,
-        message: "Unauthorized",
-        data: "Unauthorized",
-      });
-    }
-    req.user = user;
-    next();
-  })(req, res, next);
-};
+const { addUser, removeUser } = require("../../model/Users");
+const { auth } = require("../../middleware/auth");
 
 router.get("/verify/:verificationToken", verifyToken);
 
